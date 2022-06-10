@@ -1,0 +1,81 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: merge-pr
+  namespace: tekton-test
+spec:
+  params:
+    - name: pr
+      type: string
+  steps:
+    - args:
+        - $(params.pr)
+      command:
+        - echo
+      image: registry.redhat.io/ubi7/ubi-minimal
+      name: merge-pr
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: servicenow-change-verify
+  namespace: tekton-test
+spec:
+  workspaces:
+    - name: source
+  params:
+    - name: change-ticket-number
+      type: string
+    - name: bitbucket-branch-source
+      type: string
+    - name: bitbucket-branch-target
+      type: string            
+  steps:
+    - args:
+        - $(params.change-ticket-number)
+        - $(params.bitbucket-branch-source)
+        - $(params.bitbucket-branch-target)
+      command:
+        - echo
+      image: registry.redhat.io/ubi7/ubi-minimal
+      name: print-change-ticket
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: merge-after-change-validation
+  namespace: tekton-test
+spec:
+  workspaces:
+  - name: shared-workspace
+  params:
+    - name: bitbucket-branch-source
+      type: string
+    - name: bitbucket-branch-target
+      type: string
+  tasks:
+    - name: servicenow-change-verify
+      params:
+        - name: change-ticket-number
+          value: CHG1234567
+        - name: bitbucket-branch-source
+          value: "$(params.bitbucket-branch-source)"
+        - name: bitbucket-branch-target
+          value: "$(params.bitbucket-branch-target)"          
+      taskRef:
+        kind: Task
+        name: servicenow-change-verify
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+
+    - name: merge-pr
+      params:
+        - name: pr
+          value: pr-merge-to-master
+      runAfter:
+        - servicenow-change-verify
+      taskRef:
+        kind: Task
+        name: merge-pr
+
