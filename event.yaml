@@ -68,15 +68,6 @@ spec:
         value: "$(tt.params.bitbucket-branch-source)"
       - name: bitbucket-branch-target
         value: "$(tt.params.bitbucket-branch-target)"
-      workspaces:
-        - name: shared-workspace
-          volumeClaimTemplate:
-            spec:
-              accessModes:
-                - ReadWriteOnce
-              resources:
-                requests:
-                  storage: 500Mi
 ---
 apiVersion: v1
 kind: Secret

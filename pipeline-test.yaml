@@ -21,8 +21,6 @@ metadata:
   name: servicenow-change-verify
   namespace: tekton-test
 spec:
-  workspaces:
-    - name: source
   params:
     - name: change-ticket-number
       type: string
@@ -46,8 +44,6 @@ metadata:
   name: merge-after-change-validation
   namespace: tekton-test
 spec:
-  workspaces:
-  - name: shared-workspace
   params:
     - name: bitbucket-branch-source
       type: string
@@ -65,9 +61,6 @@ spec:
       taskRef:
         kind: Task
         name: servicenow-change-verify
-      workspaces:
-        - name: source
-          workspace: shared-workspace
 
     - name: merge-pr
       params:
