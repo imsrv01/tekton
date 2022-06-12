@@ -1,3 +1,11 @@
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "tekton-test"
+  labels:
+    name: "tekton-test"
+---
 apiVersion: triggers.tekton.dev/v1beta1
 kind: EventListener
 metadata:
@@ -17,6 +25,15 @@ spec:
   serviceAccountName: pipeline
   interceptors:
     - ref:
+        name: "cel"
+      params:
+      - name: "filter"
+        value: "body.comment.text=='MERGE' && body.pullRequest.reviewers.exists(x, x.user.name == body.comment.author.name)"
+      - name: "overlays"
+        value:
+        - key: bitbucket-api-base-url
+          expression: "body.pullRequest.links.self[0].href.split('projects')[0]"
+    - ref:
         name: "bitbucket"
       params:
         - name: "secretRef"
@@ -24,7 +41,7 @@ spec:
             secretName: bitbucket-secret
             secretKey: secretToken
         - name: "eventTypes"
-          value: ["pr:reviewer:approved", "pr:opened"]
+          value: ["pr:comment:added"]
   bindings:
     - ref: merge-after-change-validation
   template:
@@ -37,10 +54,18 @@ metadata:
   namespace: tekton-test
 spec:
   params:
-  - name: bitbucket-branch-source
-    value: $(body.pullRequest.fromRef.id)
-  - name: bitbucket-branch-target
-    value: $(body.pullRequest.toRef.id)
+  - name: project-key
+    value: $(body.pullRequest.toRef.repository.project.key)
+  - name: repository-slug
+    value: $(body.pullRequest.toRef.repository.slug)
+  - name: pull-request-id
+    value: $(body.pullRequest.id)
+  - name: pull-request-version
+    value: $(body.pullRequest.version)
+  - name: pull-request-description
+    value: $(body.pullRequest.description)
+  - name: bitbucket-api-base-url
+    value: $(extensions.bitbucket-api-base-url)    
 ---
 apiVersion: triggers.tekton.dev/v1beta1
 kind: TriggerTemplate
@@ -49,10 +74,18 @@ metadata:
   namespace: tekton-test
 spec:
   params:
-  - name: bitbucket-branch-source
-    description: source branch
-  - name: bitbucket-branch-target
-    description: target branch
+  - name: project-key
+    description: project key
+  - name: repository-slug
+    description: Name of the repository
+  - name: pull-request-id
+    description: Pull request id
+  - name: pull-request-version
+    description: pull request current version
+  - name: bitbucket-api-base-url
+    description: bitbucket api base url
+  - name: pull-request-description
+    description: pull request description   
 
   resourcetemplates:
   - apiVersion: tekton.dev/v1beta1
@@ -64,10 +97,18 @@ spec:
       pipelineRef:
         name: merge-after-change-validation
       params:
-      - name: bitbucket-branch-source
-        value: "$(tt.params.bitbucket-branch-source)"
-      - name: bitbucket-branch-target
-        value: "$(tt.params.bitbucket-branch-target)"
+      - name: project-key
+        value: "$(tt.params.project-key)"
+      - name: repository-slug
+        value: "$(tt.params.repository-slug)"
+      - name: pull-request-id
+        value: "$(tt.params.pull-request-id)"        
+      - name: pull-request-version
+        value: "$(tt.params.pull-request-version)"
+      - name: bitbucket-api-base-url
+        value: "$(tt.params.bitbucket-api-base-url)"
+      - name: pull-request-description
+        value: "$(tt.params.pull-request-description)"                   
 ---
 apiVersion: v1
 kind: Secret
@@ -77,15 +118,3 @@ metadata:
 type: Opaque
 stringData:
   secretToken: "1234567"
-
----
-#apiVersion: v1
-#kind: PersistentVolumeClaim
-#metadata:
-#  name: source-pvc
-#spec:
-#  accessModes:
-#    - ReadWriteOnce
-#  resources:
-#    requests:
-#      storage: 500Mi

@@ -1,3 +1,11 @@
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "tekton-test"
+  labels:
+    name: "tekton-test"
+---
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
@@ -22,21 +30,34 @@ metadata:
   namespace: tekton-test
 spec:
   params:
-    - name: change-ticket-number
-      type: string
-    - name: bitbucket-branch-source
-      type: string
-    - name: bitbucket-branch-target
-      type: string            
+    - name: project-key
+      description: project key
+    - name: repository-slug
+      description: Name of the repository
+    - name: pull-request-id
+      description: Pull request id
+    - name: pull-request-version
+      description: pull request current version
+    - name: bitbucket-api-base-url
+      description: bitbucket api base url     
+    - name: pull-request-description
+      description: pull request description           
   steps:
-    - args:
-        - $(params.change-ticket-number)
-        - $(params.bitbucket-branch-source)
-        - $(params.bitbucket-branch-target)
-      command:
-        - echo
-      image: registry.redhat.io/ubi7/ubi-minimal
+    - image: registry.redhat.io/ubi7/ubi-minimal
       name: print-change-ticket
+      script: |
+        #!/usr/bin/env bash
+        set -xe
+        echo "Hello World!"
+        echo $(params.project-key)
+        TOKEN=${token}
+        curl -v --request POST --url '$(params.bitbucket-api-base-url)rest/api/1.0/projects/$(params.project-key)/repos/$(params.repository-slug)/pull-requests/$(params.pull-request-id)/merge?version=$(params.pull-request-version)' --header 'Accept: application/json' --header "Authorization: Bearer $TOKEN" --header 'X-Atlassian-Token: no-check' -k
+      env:
+      - name: token
+        valueFrom:
+          secretKeyRef:
+            name: bitbucket-token
+            key: secretToken
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
@@ -45,19 +66,33 @@ metadata:
   namespace: tekton-test
 spec:
   params:
-    - name: bitbucket-branch-source
-      type: string
-    - name: bitbucket-branch-target
-      type: string
+    - name: project-key
+      description: project key
+    - name: repository-slug
+      description: Name of the repository
+    - name: pull-request-id
+      description: Pull request id
+    - name: pull-request-version
+      description: pull request current version
+    - name: bitbucket-api-base-url
+      description: bitbucket api base url
+    - name: pull-request-description
+      description: pull request description    
   tasks:
     - name: servicenow-change-verify
       params:
-        - name: change-ticket-number
-          value: CHG1234567
-        - name: bitbucket-branch-source
-          value: "$(params.bitbucket-branch-source)"
-        - name: bitbucket-branch-target
-          value: "$(params.bitbucket-branch-target)"          
+        - name: project-key
+          value: "$(params.project-key)"
+        - name: repository-slug
+          value: "$(params.repository-slug)" 
+        - name: pull-request-id
+          value: "$(params.pull-request-id)"
+        - name: pull-request-version
+          value: "$(params.pull-request-version)" 
+        - name: bitbucket-api-base-url
+          value: "$(params.bitbucket-api-base-url)"
+        - name: pull-request-description
+          value: "$(params.pull-request-description)"                                      
       taskRef:
         kind: Task
         name: servicenow-change-verify
@@ -72,3 +107,12 @@ spec:
         kind: Task
         name: merge-pr
 
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bitbucket-token
+  namespace: tekton-test
+type: Opaque
+stringData:
+  secretToken: "xxxxxxxxx"
