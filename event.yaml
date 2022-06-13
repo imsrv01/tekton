@@ -33,6 +33,8 @@ spec:
         value:
         - key: bitbucket-api-base-url
           expression: "body.pullRequest.links.self[0].href.split('projects')[0]"
+        - key: pull-request-description
+          expression: "has(body.pullRequest.description) ? body.pullRequest.description : '' "
     - ref:
         name: "bitbucket"
       params:
@@ -63,7 +65,7 @@ spec:
   - name: pull-request-version
     value: $(body.pullRequest.version)
   - name: pull-request-description
-    value: $(body.pullRequest.description)
+    value: $(extensions.pull-request-description)
   - name: bitbucket-api-base-url
     value: $(extensions.bitbucket-api-base-url)    
 ---
