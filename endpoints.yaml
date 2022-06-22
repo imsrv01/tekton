@@ -1,0 +1,14 @@
+namespace:
+  - change-managemnt
+
+endpoints:
+  - host: google.com
+    port: 443
+  - host: google.com
+    port: 8080
+  - host: localhost
+    port: 7990
+  - host: localhost
+    port: 7990
+  - host: microsoft.com
+    port: 443
